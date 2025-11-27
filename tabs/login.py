@@ -18,11 +18,10 @@ def login_tab(cookie_manager):
         if resp.status_code == 200:
             user = resp.json()["user"]
 
-            # SIMPAN COOKIE
             cookie_manager["username"] = user["name"]
             cookie_manager["email"] = user["email"]
             cookie_manager["role"] = user.get("role", "user")
-            cookie_manager.save()       # WAJIB
+            cookie_manager.save()       
 
             st.success("Login success! Refresh halaman ✔")
 

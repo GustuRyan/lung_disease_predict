@@ -18,7 +18,7 @@ def register_tab():
 
     if submit_btn:
         if password != confirm_password:
-            st.error("❌ Password and Confirm Password do not match!")
+            st.error("Password and Confirm Password do not match!")
             return
         
         payload = {
@@ -31,12 +31,12 @@ def register_tab():
             response = requests.post(API_URL, json=payload)
 
             if response.status_code == 201 or response.status_code == 200:
-                st.success("✅ Registration successful!")
+                st.success("Registration successful!")
                 st.json(response.json())
             else:
-                st.error("❌ Failed to register.")
+                st.error("Failed to register.")
                 st.write("Response:", response.text)
 
         except Exception as e:
-            st.error("❌ Error connecting to API.")
+            st.error("Error connecting to API.")
             st.write(e)
