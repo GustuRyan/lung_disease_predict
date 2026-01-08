@@ -229,6 +229,36 @@ def run_pipeline(root):
     svm=SVM(best[0],best[1]).fit(Xtrf,ypool)
     Xtef=to_features(Xte)
     print("TEST:",f1(yte,svm.predict(Xtef)))
+    
+# =========================================================
+# Confusion Matrix & Detailed Metrics
+# =========================================================
+
+def confusion_matrix(y_true, y_pred):
+    """
+    Return: TP, TN, FP, FN
+    Positive class = 1 (PNEUMONIA)
+    Negative class = -1 (NORMAL)
+    """
+    tp = tn = fp = fn = 0
+    for yt, yp in zip(y_true, y_pred):
+        if yt == 1 and yp == 1:
+            tp += 1
+        elif yt == -1 and yp == -1:
+            tn += 1
+        elif yt == -1 and yp == 1:
+            fp += 1
+        elif yt == 1 and yp == -1:
+            fn += 1
+    return tp, tn, fp, fn
+
+
+def precision_recall_f1(tp, fp, fn):
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall    = tp / (tp + fn) if (tp + fn) else 0.0
+    f1_score  = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
+    return precision, recall, f1_score
+
 
 # =========================================================
 # RUN
@@ -301,15 +331,38 @@ def train_model(
 
     svm = SVM(C=best_C, gamma=best_gamma).fit(Xtrf, ypool)
     Xtef = to_features(Xte)
+    y_pred = svm.predict(Xtef)
 
-    acc_test, f1_test = f1(yte, svm.predict(Xtef))
-    print(f"TEST ACC = {acc_test:.4f}")
-    print(f"TEST F1  = {f1_test:.4f}")
+    # Confusion Matrix
+    tp, tn, fp, fn = confusion_matrix(yte, y_pred)
+
+    # Metrics
+    precision, recall, f1_score = precision_recall_f1(tp, fp, fn)
+    accuracy = (tp + tn) / (tp + tn + fp + fn)
+
+    print("\nCONFUSION MATRIX")
+    print("                 Pred NORMAL   Pred PNEUMONIA")
+    print(f"Actual NORMAL     {tn:5d}         {fp:5d}")
+    print(f"Actual PNEUMONIA  {fn:5d}         {tp:5d}")
+
+    print("\nTEST METRICS")
+    print(f"Accuracy  : {accuracy:.4f}")
+    print(f"Precision : {precision:.4f}")
+    print(f"Recall    : {recall:.4f}")
+    print(f"F1-score  : {f1_score:.4f}")
 
     return {
         "C": best_C,
         "gamma": best_gamma,
-        "f1_val": best_f1,
-        "acc_test": acc_test,
-        "f1_test": f1_test
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "f1_test": f1_score,
+        "confusion_matrix": {
+            "TP": tp,
+            "TN": tn,
+            "FP": fp,
+            "FN": fn
+        }
     }
+

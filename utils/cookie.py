@@ -1,7 +1,7 @@
 import streamlit as st
 from streamlit_cookies_manager import EncryptedCookieManager
 
-@st.cache_resource(experimental_allow_widgets=True)
+@st.cache_resource
 def _cookie_manager():
     return EncryptedCookieManager(
         prefix="lungcare_",

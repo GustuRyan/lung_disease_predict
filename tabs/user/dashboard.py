@@ -12,7 +12,7 @@ from model_svm import extract_hog_opencv
 from utils.cookie import get_user_id
 
 HISTORY_URL = "http://localhost:8080/api/v1/history"
-MODEL_URL = "http://localhost:8080/api/v1/model"
+MODEL_URL = "http://localhost:8080/api/v1/model-active"
 DISEASE_URL = "http://localhost:8080/api/v1/disease"
 RECOMMENDATION_URL = "http://localhost:8080/api/v1/recommendations"
 

@@ -3,9 +3,14 @@ import cv2
 import numpy as np
 from PIL import Image
 from skimage.feature import hog
+from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import (
+    classification_report,
+    confusion_matrix,
+    precision_recall_fscore_support
+)
 
 def load_gray_image(path, size=128):
     img = Image.open(path).convert("L")
@@ -100,9 +105,23 @@ def train_svm_dynamic_classes(
     # ==============================
     # EVALUATION
     # ==============================
-    train_acc = accuracy_score(y_train, svm_model.predict(X_train))
-    val_acc = accuracy_score(y_val, svm_model.predict(X_val))
-    test_acc = accuracy_score(y_test, svm_model.predict(X_test))
+    y_train_pred = svm_model.predict(X_train)
+    y_val_pred   = svm_model.predict(X_val)
+    y_test_pred  = svm_model.predict(X_test)
+
+    train_acc = accuracy_score(y_train, y_train_pred)
+    val_acc   = accuracy_score(y_val, y_val_pred)
+    test_acc  = accuracy_score(y_test, y_test_pred)
+
+    # ===== Detailed Metrics (TEST SET) =====
+    report = classification_report(
+        y_test,
+        y_test_pred,
+        target_names=selected_classes,
+        output_dict=True
+    )
+
+    cm = confusion_matrix(y_test, y_test_pred)
 
     if progress_callback:
         progress_callback(1.0)
@@ -113,4 +132,5 @@ def train_svm_dynamic_classes(
         "test_acc": test_acc
     }
 
-    return history, svm_model, selected_classes
+    return history, svm_model, selected_classes, report, cm
+

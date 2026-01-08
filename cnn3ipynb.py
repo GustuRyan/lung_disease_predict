@@ -5,10 +5,13 @@ import streamlit as st
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.metrics import classification_report, confusion_matrix
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, random_split
-
 
 # =============================
 # 1. Model TinyCNN
@@ -17,19 +20,13 @@ class TinyCNN(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 32, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2)
+            nn.Conv2d(1, 32, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2)
         )
         self.layer2 = nn.Sequential(
-            nn.Conv2d(32, 64, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2)
+            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2)
         )
         self.layer3 = nn.Sequential(
-            nn.Conv2d(64, 128, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2)
+            nn.Conv2d(64, 128, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2)
         )
         self.fc = nn.Sequential(
             nn.Flatten(),
@@ -37,12 +34,11 @@ class TinyCNN(nn.Module):
             nn.Linear(128 * 16 * 16, 512),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(512, num_classes)
+            nn.Linear(512, num_classes),
         )
 
     def forward(self, x):
         return self.fc(self.layer3(self.layer2(self.layer1(x))))
-
 
 # =============================
 # 2. Early Stopper
@@ -82,19 +78,54 @@ def calculate_accuracy(model, dataloader, device):
 
     return correct / total if total > 0 else 0
 
+
+def evaluate_model(model, dataloader, device, class_names):
+    model.eval()
+    y_true = []
+    y_pred = []
+
+    with torch.no_grad():
+        for img, label in dataloader:
+            img, label = img.to(device), label.to(device)
+            outputs = model(img)
+            preds = torch.argmax(outputs, dim=1)
+
+            y_true.extend(label.cpu().numpy())
+            y_pred.extend(preds.cpu().numpy())
+
+    # Classification report
+    report = classification_report(
+        y_true, y_pred, target_names=class_names, output_dict=True
+    )
+
+    # Confusion matrix
+    cm = confusion_matrix(y_true, y_pred)
+
+    return report, cm
+
+
 # =============================
 # 3. Training Function
 # =============================
-def train_model(dataset_path, selected_classes, epochs, batch_size, model_save_name, status_callback=None):
+def train_model(
+    dataset_path,
+    selected_classes,
+    epochs,
+    batch_size,
+    model_save_name,
+    status_callback=None,
+):
     IMG_SIZE = 128
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    transform = transforms.Compose([
-        transforms.Grayscale(1),
-        transforms.Resize((IMG_SIZE, IMG_SIZE)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.5], [0.5])
-    ])
+    transform = transforms.Compose(
+        [
+            transforms.Grayscale(1),
+            transforms.Resize((IMG_SIZE, IMG_SIZE)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.5], [0.5]),
+        ]
+    )
 
     # Load dataset
     full_dataset = datasets.ImageFolder(dataset_path, transform=transform)
@@ -116,7 +147,9 @@ def train_model(dataset_path, selected_classes, epochs, batch_size, model_save_n
     val_size = int(0.15 * total)
     test_size = total - train_size - val_size
 
-    train_ds, val_ds, test_ds = random_split(full_dataset, [train_size, val_size, test_size])
+    train_ds, val_ds, test_ds = random_split(
+        full_dataset, [train_size, val_size, test_size]
+    )
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size)
@@ -175,7 +208,9 @@ def train_model(dataset_path, selected_classes, epochs, batch_size, model_save_n
         graph_loss.line_chart(history)
 
         progress.progress((epoch + 1) / epochs)
-        st.write(f"Epoch {epoch+1}/{epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+        st.write(
+            f"Epoch {epoch+1}/{epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}"
+        )
 
         if stopper.check(val_loss, model):
             st.warning("⛔ Early stopping triggered!")
@@ -184,11 +219,39 @@ def train_model(dataset_path, selected_classes, epochs, batch_size, model_save_n
     # LOAD BEST MODEL
     model.load_state_dict(torch.load(f"{model_save_name}.pth"))
 
+    # =========================
+    # EVALUATION
+    # =========================
+    st.subheader("📊 Model Evaluation (Test Data)")
+
+    report, cm = evaluate_model(model, test_loader, device, selected_classes)
+
+    # === Precision, Recall, F1 ===
+    df_report = pd.DataFrame(report).transpose()
+    st.markdown("### 🔍 Precision, Recall, F1-Score")
+    st.dataframe(df_report.style.format("{:.4f}"))
+
+    # === Confusion Matrix ===
+    st.markdown("### 🧩 Confusion Matrix")
+    fig, ax = plt.subplots(figsize=(6, 5))
+    sns.heatmap(
+        cm,
+        annot=True,
+        fmt="d",
+        cmap="Blues",
+        xticklabels=selected_classes,
+        yticklabels=selected_classes,
+        ax=ax,
+    )
+    ax.set_xlabel("Predicted Label")
+    ax.set_ylabel("True Label")
+    st.pyplot(fig)
+
     # SAVE AS JOBLIB
-    joblib.dump({
-        "state_dict": model.state_dict(),
-        "classes": selected_classes
-    }, f"{model_save_name}.joblib")
+    joblib.dump(
+        {"state_dict": model.state_dict(), "classes": selected_classes},
+        f"{model_save_name}.joblib",
+    )
 
     st.success(f"Model saved as {model_save_name}.joblib")
     return model
