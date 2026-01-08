@@ -1,11 +1,15 @@
 import streamlit as st
 import pandas as pd
 import joblib
-
 from streamlit_cookies_manager import EncryptedCookieManager
 
+from tabs.admin.dataset import dataset_tab
+from tabs.admin.recommendation import recommendation_tab
+from tabs.admin.training import training_tab
 from tabs.login import login_tab
 from tabs.register import register_tab
+from tabs.user.dashboard import dashboard_tab
+from tabs.user.history import history_tab
 
 st.set_page_config(page_title="Lung Care System", layout="wide")
 
@@ -13,17 +17,23 @@ st.set_page_config(page_title="Lung Care System", layout="wide")
 #  COOKIE MANAGER
 # =====================
 cookie_manager = EncryptedCookieManager(
-    prefix="lungcare_", password="your-strong-secret-password"
+    prefix="lungcare_",
+    password="your-strong-secret-password"
 )
 
 if not cookie_manager.ready():
+    st.info("🔄 Menyiapkan sesi...")
     st.stop()
 
+user_id = cookie_manager.get("user_id")
+
+if user_id:
+    st.session_state.user_id = int(user_id)
 username = cookie_manager.get("username")
 email = cookie_manager.get("email")
 role = cookie_manager.get("role")
 
-st.title("Lung Disease Prediction")
+st.title("🔷Lung Disease Prediction🔷")
 st.write(
     "Use this app to predict lung disease with a chest X-ray image, "
     "or need lung healthcare recommendations."
@@ -76,7 +86,7 @@ if not username:
 # ==========================
 st.sidebar.subheader("Menu")
 
-menu_options = ["🏠 Dashboard", "📊 Predict", "📂 History"]
+menu_options = ["🏠 Dashboard", "📂 History"]
 
 menu_choice = st.sidebar.radio(
     "Main Menu",
@@ -88,14 +98,10 @@ menu_choice = st.sidebar.radio(
 )
 
 if st.session_state.active_menu == "🏠 Dashboard":
-    st.write("Dashboard here...")
-
-elif st.session_state.active_menu == "📊 Predict":
-    st.write("Prediction page...")
+    dashboard_tab()
 
 elif st.session_state.active_menu == "📂 History":
-    st.write("History page...")
-
+    history_tab()
 
 # ==========================
 # ADMIN MENU SECTION
@@ -103,7 +109,7 @@ elif st.session_state.active_menu == "📂 History":
 if role == "admin":
     st.sidebar.subheader("Admin")
 
-    admin_options = ["📊 Train Model", "📂 Manage Recommendation"]
+    admin_options = ["📊 Train Model", "📂 Manage Dataset", "📂 Manage Recommendation"]
 
     admin_choice = st.sidebar.radio(
         "Admin Menu",
@@ -115,11 +121,14 @@ if role == "admin":
     )
 
     if st.session_state.active_menu == "📊 Train Model":
-        st.write("Training model...")
+        training_tab()
 
+    elif st.session_state.active_menu == "📂 Manage Dataset":
+        dataset_tab()
+        
     elif st.session_state.active_menu == "📂 Manage Recommendation":
-        st.write("Managing recommendation...")
-
+        recommendation_tab()
+        
 # ============================
 # LOGOUT SECTION (BOTTOM)
 # ============================

@@ -18,6 +18,7 @@ def login_tab(cookie_manager):
         if resp.status_code == 200:
             user = resp.json()["user"]
 
+            cookie_manager["user_id"] = str(user["id"])
             cookie_manager["username"] = user["name"]
             cookie_manager["email"] = user["email"]
             cookie_manager["role"] = user.get("role", "user")
